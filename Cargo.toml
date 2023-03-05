@@ -7,3 +7,11 @@ edition = "2021"
 
 [dependencies]
 egg = "0.9.3"
+
+[[bin]]
+name = "test"
+test = false
+
+[lib]
+name = "lang"
+path = "src/lib/mod.rs"
