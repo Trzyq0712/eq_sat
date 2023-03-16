@@ -1,0 +1,4 @@
+- Introduce more rewrite rules
+- Create a parser to transform code into a PEG
+- Create an interpreter (?)
+- Redo the project structure
