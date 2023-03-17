@@ -39,7 +39,7 @@ mod tests {
         assert_eq!(expr, parsed);
     }
 
-    fn example_expression() -> RecExpr<Lang> {
+    fn example_expression(graph: &mut EGraph<Lang, ()>) -> egg::Id {
         // i := 0;
         // while (...) {
         //   use(i * 5);
@@ -50,27 +50,24 @@ mod tests {
         // }
 
         use Lang::*;
-        let mut expr = RecExpr::default();
-        let zero = expr.add(Num(0));
-        let one = expr.add(Num(1));
-        let three = expr.add(Num(3));
-        let five = expr.add(Num(5));
-        let tr = expr.add(Bool(true));
-        let temp = expr.add(Temp(0));
-        let add1 = expr.add(Add([one, temp]));
-        let add2 = expr.add(Add([three, add1]));
-        let if_st = expr.add(If([tr, add2, add1]));
-        let loop_st = expr.add(Seq([zero, if_st]));
-        let times = expr.add(Mul([loop_st, five]));
+        let zero = graph.add(Num(0));
+        let one = graph.add(Num(1));
+        let three = graph.add(Num(3));
+        let five = graph.add(Num(5));
+        let tr = graph.add(Bool(true));
+        let temp = graph.add(Temp(0));
+        let add1 = graph.add(Add([one, temp]));
+        let add2 = graph.add(Add([three, add1]));
+        let if_st = graph.add(If([tr, add2, add1]));
+        let loop_st = graph.add(Seq([zero, if_st]));
+        let times = graph.add(Mul([loop_st, five]));
 
-        let mut graph: EGraph<Lang, ()> = EGraph::default().with_explanations_enabled();
-        graph.add_expr(&expr);
         graph.union(temp, loop_st);
         graph.rebuild();
-        graph.id_to_expr(times)
+        times
     }
 
-    fn example_expression_simplified() -> RecExpr<Lang> {
+    fn example_expression_simplified(graph: &mut EGraph<Lang, ()>) -> egg::Id {
         // i := 0;
         // while (...) {
         //   use(i);
@@ -82,36 +79,32 @@ mod tests {
 
         use Lang::*;
 
-        let mut expr = RecExpr::default();
-        let zero = expr.add(Num(0));
-        let five = expr.add(Num(5));
-        let fifteen = expr.add(Num(15));
-        let tr = expr.add(Bool(true));
-        let temp = expr.add(Temp(1));
-        let add1 = expr.add(Add([five, temp]));
-        let add2 = expr.add(Add([fifteen, add1]));
-        let if_st = expr.add(If([tr, add2, add1]));
-        let loop_st = expr.add(Seq([zero, if_st]));
+        let zero = graph.add(Num(0));
+        let five = graph.add(Num(5));
+        let fifteen = graph.add(Num(15));
+        let tr = graph.add(Bool(true));
+        let temp = graph.add(Temp(1));
+        let add1 = graph.add(Add([five, temp]));
+        let add2 = graph.add(Add([fifteen, add1]));
+        let if_st = graph.add(If([tr, add2, add1]));
+        let loop_st = graph.add(Seq([zero, if_st]));
 
-        let mut graph: EGraph<Lang, ()> = EGraph::default().with_explanations_enabled();
-        graph.add_expr(&expr);
         graph.union(temp, loop_st);
         graph.rebuild();
-        graph.id_to_expr(loop_st)
+        loop_st
     }
 
     #[test]
     fn ross_tate_example() {
-        let example = example_expression();
-        let example_simplified = example_expression_simplified();
+        let mut graph = EGraph::default();
+
+        let id_example = example_expression(&mut graph);
+        let id_example_simplified = example_expression(&mut graph);
 
         let runner = Runner::default()
             .with_explanations_enabled()
-            .with_expr(&example)
-            .with_expr(&example_simplified)
+            .with_egraph(graph)
             .run(&rules::rw_rules());
-        let id_example = runner.roots[0];
-        let id_example_simplified = runner.roots[1];
         assert_eq!(
             runner.egraph.find(id_example),
             runner.egraph.find(id_example_simplified)
