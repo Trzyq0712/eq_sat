@@ -1,4 +1,7 @@
 - Introduce more rewrite rules
+- Implement constant folding
+- Get example equality saturation from the paper working
+- Add custom cost function for optimal code extraction
 - Create a parser to transform code into a PEG
 - Create an interpreter (?)
 - Redo the project structure
