@@ -1,5 +1,6 @@
 use egg::*;
-mod rules;
+pub mod rules;
+pub mod analysis;
 
 define_language! {
     pub enum Lang {
@@ -10,6 +11,9 @@ define_language! {
         "-" = Neg(Id),
         "<" = Lt([Id; 2]),
         "==" = Eq([Id; 2]),
+        "and" = And([Id; 2]),
+        "or" = Or([Id; 2]),
+        "not" = Not(Id),
         "theta" = Seq([Id; 2]),
         "eval" = Eval([Id; 2]), // sequence, nth of
         "pass" = Pass(Id), // returns index of first true in sequence
@@ -25,7 +29,7 @@ define_language! {
 mod tests {
     use egg::{EGraph, RecExpr, Runner};
 
-    use crate::{rules, Lang};
+    use crate::{rules, Lang, analysis};
 
     #[test]
     fn lang() {
@@ -39,7 +43,7 @@ mod tests {
         assert_eq!(expr, parsed);
     }
 
-    fn example_expression(graph: &mut EGraph<Lang, ()>) -> egg::Id {
+    fn example_expression(graph: &mut EGraph<Lang, analysis::ConstFold>) -> egg::Id {
         // i := 0;
         // while (...) {
         //   use(i * 5);
@@ -54,20 +58,21 @@ mod tests {
         let one = graph.add(Num(1));
         let three = graph.add(Num(3));
         let five = graph.add(Num(5));
-        let tr = graph.add(Bool(true));
+        let cond = graph.add(Symbol("c".into()));
         let temp = graph.add(Temp(0));
         let add1 = graph.add(Add([one, temp]));
         let add2 = graph.add(Add([three, add1]));
-        let if_st = graph.add(If([tr, add2, add1]));
+        let if_st = graph.add(If([cond, add2, add1]));
         let loop_st = graph.add(Seq([zero, if_st]));
         let times = graph.add(Mul([loop_st, five]));
 
         graph.union(temp, loop_st);
         graph.rebuild();
+        println!("normal root id: {}", times);
         times
     }
 
-    fn example_expression_simplified(graph: &mut EGraph<Lang, ()>) -> egg::Id {
+    fn example_expression_simplified(graph: &mut EGraph<Lang, analysis::ConstFold>) -> egg::Id {
         // i := 0;
         // while (...) {
         //   use(i);
@@ -82,15 +87,16 @@ mod tests {
         let zero = graph.add(Num(0));
         let five = graph.add(Num(5));
         let fifteen = graph.add(Num(15));
-        let tr = graph.add(Bool(true));
+        let cond = graph.add(Symbol("c".into()));
         let temp = graph.add(Temp(1));
         let add1 = graph.add(Add([five, temp]));
         let add2 = graph.add(Add([fifteen, add1]));
-        let if_st = graph.add(If([tr, add2, add1]));
+        let if_st = graph.add(If([cond, add2, add1]));
         let loop_st = graph.add(Seq([zero, if_st]));
 
         graph.union(temp, loop_st);
         graph.rebuild();
+        println!("simplified root id: {}", loop_st);
         loop_st
     }
 
@@ -99,15 +105,43 @@ mod tests {
         let mut graph = EGraph::default();
 
         let id_example = example_expression(&mut graph);
-        let id_example_simplified = example_expression(&mut graph);
+        let id_example_simplified = example_expression_simplified(&mut graph);
 
         let runner = Runner::default()
             .with_explanations_enabled()
             .with_egraph(graph)
             .run(&rules::rw_rules());
+
+        println!("{:?}", &runner.egraph);
+        // println!("{:?}", runner.egraph.clone().with_explanations_enabled().id_to_expr(id_example));
+        // println!("{:?}", runner.egraph.clone().with_explanations_enabled().id_to_expr(id_example_simplified));
+        runner.egraph.dot().to_pdf("test.pdf");
         assert_eq!(
             runner.egraph.find(id_example),
             runner.egraph.find(id_example_simplified)
         );
+    }
+
+    #[test]
+    fn test_simple_equality() {
+        let mut graph = EGraph::default();
+
+        let id1 = {
+            let expr1 = "(+ 4 (phi c 2 3))".parse().unwrap();
+            graph.add_expr(&expr1)
+        };
+
+        let id2 = {
+            let expr2 = "(* 1 (+ (phi (not c) 3 2) 4))".parse().unwrap();
+            graph.add_expr(&expr2)
+        };
+
+        let runner = Runner::default()
+            .with_explanations_enabled()
+            .with_egraph(graph)
+            .run(&rules::rw_rules());
+
+        assert_eq!(runner.egraph.find(id1), runner.egraph.find(id2));
+
     }
 }
