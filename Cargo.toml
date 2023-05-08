@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 egg = "0.9.3"
+llvm-ir = { version = "0.8.2", features = ["llvm-13"]}
 
 [[bin]]
 name = "test"

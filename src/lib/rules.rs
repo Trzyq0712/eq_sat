@@ -8,15 +8,15 @@ pub fn rw_rules() -> Vec<Rewrite<Lang, ConstFold>> {
 
 fn arithmetic_rules() -> Vec<Rewrite<Lang, ConstFold>>  {
     let mut unidirectional = vec![
-        rewrite!("commutative addition"; "(+ ?a ?b)" => "(+ ?b ?a)"),
-        rewrite!("commutative multiplication"; "(* ?a ?b)" => "(* ?b ?a)"),
-        rewrite!("double minus"; "(- (- ?a))" => "?a"),
-        rewrite!("double not"; "(not (not ?a))" => "?a"),
+//        rewrite!("commutative addition"; "(+ ?a ?b)" => "(+ ?b ?a)"),
+ //       rewrite!("commutative multiplication"; "(* ?a ?b)" => "(* ?b ?a)"),
+//        rewrite!("double minus"; "(- (- ?a))" => "?a"),
+//        rewrite!("double not"; "(not (not ?a))" => "?a"),
         rewrite!("comm and"; "(and ?a ?b)" => "(and ?b ?a)"),
         rewrite!("comm or"; "(or ?a ?b)" => "(or ?b ?a)"),
-        rewrite!("not if"; "(phi ?c ?t ?e)" => "(phi (not ?c) ?e ?t)"),
+//        rewrite!("not if"; "(phi ?c ?t ?e)" => "(phi (not ?c) ?e ?t)"),
         rewrite!("one multiplication"; "(* 1 ?a)" => "?a"),
-        rewrite!("zero multiplication"; "(* 1 ?a)" => "?a"),
+        rewrite!("zero multiplication"; "(* 0 ?a)" => "0"),
         rewrite!("zero addition"; "(+ 0 ?a)" => "?a"),
     ];
 

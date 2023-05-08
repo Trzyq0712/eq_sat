@@ -1,6 +1,7 @@
 use egg::*;
 pub mod rules;
 pub mod analysis;
+mod llvm_conv;
 
 define_language! {
     pub enum Lang {
@@ -20,7 +21,7 @@ define_language! {
         "phi" = If([Id; 3]), // cond, true, else
         Bool(bool),
         Num(i32),
-        Temp(i32),
+        Temp(usize),
         Symbol(Symbol),
     }
 }
