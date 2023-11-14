@@ -78,14 +78,13 @@ fn parse_bblock(ctx: &mut Context, egraph: &mut EGraph, bblock: &llvm_ir::BasicB
             ctx.ptr_state[block_id] = ctx.ptr_state[pred].clone();
         }
         &[pred1, pred2] => {
-            dbg!(&bblock.name);
             let (dec_point, (src_true, src_false)) = ctx.cfg.get_decision_point(&bblock.name);
             let &dec_block_id = ctx.cfg.block_name_to_id.get(&dec_point).unwrap();
             let dec_block = &ctx.cfg.blocks[dec_block_id];
-            dbg!(&dec_block.name);
             let llvm_ir::Terminator::CondBr(cond_br) = &dec_block.term else {
                 panic!("Expected conditional branch");
             };
+            dbg!(&src_true, &src_false);
             let cond = ctx.to_id(egraph, &(&cond_br.condition).into());
             let &true_id = ctx.cfg.block_name_to_id.get(&src_true).unwrap();
             let &false_id = ctx.cfg.block_name_to_id.get(&src_false).unwrap();
@@ -99,12 +98,23 @@ fn parse_bblock(ctx: &mut Context, egraph: &mut EGraph, bblock: &llvm_ir::BasicB
                 let id = egraph.add(Lang::Phi([cond, witness_true, witness_false]));
                 ptr_state.insert(*ptr, id);
             }
+            ctx.ptr_state[block_id] = ptr_state;
         }
         _ => panic!("More than two predecessors"),
     }
+    println!("Before {}: {:?}", bblock.name, {
+        let mut ptrs: Vec<_> = ctx.ptr_state[block_id].iter().collect();
+        ptrs.sort_unstable();
+        ptrs
+    });
     for instruction in &bblock.instrs {
         parse_instruction(ctx, egraph, &bblock.name, instruction);
     }
+    println!("After {}: {:?}", bblock.name, {
+        let mut ptrs: Vec<_> = ctx.ptr_state[block_id].iter().collect();
+        ptrs.sort_unstable();
+        ptrs
+    });
 }
 
 fn parse_instruction(

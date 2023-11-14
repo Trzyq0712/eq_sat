@@ -143,18 +143,15 @@ impl Cfg {
             panic!("Error: same condition");
         }
 
+        let left = self.blocks[left].name.clone();
+        let right = self.blocks[left_pred].name.clone();
+
         let (true_src, false_src) = if left_cnd {
-            (left_pred, right_pred)
+            (left, right)
         } else {
-            (right_pred, left_pred)
+            (right, left)
         };
 
-        (
-            self.blocks[left_pred].name.clone(),
-            (
-                self.blocks[true_src].name.clone(),
-                self.blocks[false_src].name.clone(),
-            ),
-        )
+        (self.blocks[left_pred].name.clone(), (true_src, false_src))
     }
 }

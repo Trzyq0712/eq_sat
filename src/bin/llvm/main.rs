@@ -8,10 +8,12 @@ fn main() {
     let path = Path::new(file);
     dbg!(&path);
     let module = llvm_ir::Module::from_bc_path(path).unwrap();
-    dbg!(&module.functions);
+    // dbg!(&module.functions);
 
     let func = &module.functions[0];
 
     let egraph = parse_function(func);
-    dbg!(&egraph);
+    print!("{egraph:?}");
+    // egraph.rebuild();
+    egraph.dot().to_pdf("examples/if.pdf").unwrap();
 }
