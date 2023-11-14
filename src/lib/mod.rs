@@ -1,7 +1,7 @@
 use egg::*;
-pub mod rules;
 pub mod analysis;
 mod llvm_conv;
+pub mod rules;
 
 define_language! {
     pub enum Lang {
@@ -19,9 +19,14 @@ define_language! {
         "eval" = Eval([Id; 2]), // sequence, nth of
         "pass" = Pass(Id), // returns index of first true in sequence
         "phi" = If([Id; 3]), // cond, true, else
+        "sigma" = Sigma(Id), // sigma-token
+        "store" = Store([Id; 3]), // sigma-token, pointer, value -> sigma-token
+        "load" = Load([Id; 2]), // sigma-token, pointer -> value
+        "ptr" = Ptr(Id),
         Bool(bool),
         Num(i32),
         Temp(usize),
+        Alloca(usize),
         Symbol(Symbol),
     }
 }
@@ -30,7 +35,7 @@ define_language! {
 mod tests {
     use egg::{EGraph, RecExpr, Runner};
 
-    use crate::{rules, Lang, analysis};
+    use crate::{analysis, rules, Lang};
 
     #[test]
     fn lang() {
@@ -143,6 +148,26 @@ mod tests {
             .run(&rules::rw_rules());
 
         assert_eq!(runner.egraph.find(id1), runner.egraph.find(id2));
+    }
 
+    #[test]
+    fn test_identity() {
+        let mut graph = EGraph::default();
+
+        let alloc = graph.add(Lang::Alloca(0));
+        let sigma = graph.add(Lang::Sigma(alloc));
+        let ptr = graph.add(Lang::Ptr(alloc));
+        let x = graph.add(Lang::Symbol("x".into()));
+        let store = graph.add(Lang::Store([sigma, ptr, x]));
+        let load = graph.add(Lang::Load([store, ptr]));
+
+        graph.dot().to_pdf("identity-orig.pdf");
+
+        let runner = Runner::default()
+            .with_explanations_enabled()
+            .with_egraph(graph)
+            .run(&rules::rw_rules());
+
+        runner.egraph.dot().to_pdf("identity-sat.pdf");
     }
 }

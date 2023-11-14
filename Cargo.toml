@@ -6,13 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egg = "0.9.3"
-llvm-ir = { version = "0.8.2", features = ["llvm-13"]}
+egg = "0.9.5"
+llvm-ir = { version = "0.9.0", features = ["llvm-15"] }
 
 [[bin]]
 name = "test"
 test = false
 
+[[bin]]
+name = "llvm"
+test = false
+
 [lib]
 name = "lang"
-path = "src/lib/mod.rs"
+path = "src/lib.rs"
