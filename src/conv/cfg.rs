@@ -144,7 +144,7 @@ impl Cfg {
         }
 
         let left = self.blocks[left].name.clone();
-        let right = self.blocks[left_pred].name.clone();
+        let right = self.blocks[right].name.clone();
 
         let (true_src, false_src) = if left_cnd {
             (left, right)
