@@ -1,5 +1,5 @@
 use super::cfg::Cfg;
-use crate::{EGraph, Lang};
+use crate::{lang, EGraph, Lang};
 
 use std::collections::HashMap;
 
@@ -31,7 +31,7 @@ impl Context {
         }
 
         let id = match operand {
-            Operand::Constant(value) => egraph.add(Lang::Num(*value)),
+            Operand::Constant(value) => egraph.add(Lang::I64(*value)),
             Operand::Variable(name) => panic!("Op {:?}: Variable {} not found", operand, name),
         };
 
@@ -132,8 +132,7 @@ fn parse_instruction(
             ctx.to_id.insert((&add.dest).into(), id);
         }
         llvm_ir::Instruction::Alloca(alloca) => {
-            let witness = egraph.add(Lang::Alloca(ctx.alloc_ctr));
-            ctx.alloc_ctr += 1;
+            let witness = egraph.add(Lang::Alloca);
 
             let ptr = egraph.add(Lang::Ptr(witness));
             ctx.to_id.insert((&alloca.dest).into(), ptr);
@@ -160,7 +159,7 @@ fn parse_instruction(
         llvm_ir::Instruction::ICmp(icmp) => {
             let op0 = ctx.to_id(egraph, &(&icmp.operand0).into());
             let op1 = ctx.to_id(egraph, &(&icmp.operand1).into());
-            let id = egraph.add(Lang::ICmp([op0, op1]));
+            let id = egraph.add(Lang::ICmp(lang::Cond::Eq, [op0, op1]));
             ctx.to_id.insert((&icmp.dest).into(), id);
         }
         _ => todo!(),
@@ -213,6 +212,6 @@ impl From<&llvm_ir::Name> for Operand {
 impl From<&llvm_ir::Name> for Lang {
     fn from(name: &llvm_ir::Name) -> Self {
         let symbol = name_to_string(name);
-        Lang::Symbol(egg::Symbol::new(symbol))
+        Lang::Var(egg::Symbol::new(symbol))
     }
 }
