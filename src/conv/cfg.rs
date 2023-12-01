@@ -4,10 +4,10 @@ use llvm_ir::{Name, Terminator};
 
 pub struct Cfg {
     pub blocks: Vec<llvm_ir::BasicBlock>,
-    pub block_name_to_id: HashMap<llvm_ir::Name, usize>,
+    lbl_to_id: HashMap<llvm_ir::Name, usize>,
     graph: Vec<Vec<usize>>,
     transposed: Vec<Vec<usize>>,
-    decision_point: Vec<Option<(usize, bool)>>,
+    ret_blocks: Vec<usize>,
 }
 
 fn topo_order(graph: &[Vec<usize>]) -> Vec<usize> {
@@ -44,6 +44,7 @@ impl Cfg {
         let mut bname_to_id = HashMap::new();
         let mut graph = vec![Vec::new(); blocks.len()];
         let mut transposed = vec![Vec::new(); blocks.len()];
+        let mut ret_blocks = Vec::new();
         for (i, block) in blocks.iter().enumerate() {
             bname_to_id.insert(block.name.clone(), i);
         }
@@ -63,32 +64,7 @@ impl Cfg {
                     transposed[dest_false].push(i);
                 }
                 Terminator::Ret(_) => {
-                    dbg!("Reached ret");
-                }
-                _ => todo!("Unhandled terminator"),
-            }
-        }
-
-        let mut decision_point = vec![None; blocks.len() + 1];
-
-        dbg!(&transposed);
-
-        let order = topo_order(&graph);
-        for &node in &order {
-            dbg!(&blocks[node].name);
-            match &blocks[node].term {
-                Terminator::Br(br) => {
-                    let dest = *bname_to_id.get(&br.dest).unwrap();
-                    decision_point[dest] = decision_point[node];
-                }
-                Terminator::CondBr(br) => {
-                    let dest_true = *bname_to_id.get(&br.true_dest).unwrap();
-                    let dest_false = *bname_to_id.get(&br.false_dest).unwrap();
-                    decision_point[dest_true] = Some((node, true));
-                    decision_point[dest_false] = Some((node, false));
-                }
-                Terminator::Ret(_) => {
-                    dbg!("Reached ret");
+                    ret_blocks.push(i);
                 }
                 _ => todo!("Unhandled terminator"),
             }
@@ -96,62 +72,32 @@ impl Cfg {
 
         Self {
             blocks: blocks.to_vec(),
-            block_name_to_id: bname_to_id,
+            lbl_to_id: bname_to_id,
             graph,
             transposed,
-            decision_point,
+            ret_blocks,
         }
     }
 
-    pub fn get_preds(&self, name: &Name) -> &[usize] {
-        let &id = self.block_name_to_id.get(name).unwrap();
+    pub fn ret_blocks(&self) -> &[usize] {
+        &self.ret_blocks
+    }
+
+    pub fn id_of(&self, name: &Name) -> usize {
+        *self.lbl_to_id.get(name).unwrap()
+    }
+
+    pub fn succs(&self, name: &Name) -> &[usize] {
+        let &id = self.lbl_to_id.get(name).unwrap();
+        &self.graph[id]
+    }
+
+    pub fn preds(&self, name: &Name) -> &[usize] {
+        let &id = self.lbl_to_id.get(name).unwrap();
         &self.transposed[id]
     }
 
     pub fn topo_order(&self) -> Vec<usize> {
         topo_order(&self.graph)
-    }
-
-    pub fn get_decision_point(&self, name: &Name) -> (Name, (Name, Name)) {
-        let &curr = self.block_name_to_id.get(name).unwrap();
-        let left = self.transposed[curr][0];
-        let right = self.transposed[curr][1];
-        // dbg!(self.blocks[curr]);
-        assert!(self.transposed[curr].len() != 1, "Not a decision");
-        assert!(
-            self.transposed[curr].len() <= 2,
-            "Unsupported: more than 2 predecessors"
-        );
-
-        let left_dec_point = self.decision_point[left];
-        let right_dec_point = self.decision_point[right];
-
-        dbg!(&left_dec_point, &right_dec_point);
-
-        if left_dec_point.is_none() || right_dec_point.is_none() {
-            panic!("Error: decision point not found");
-        }
-
-        let (left_pred, left_cnd) = left_dec_point.unwrap();
-        let (right_pred, right_cnd) = right_dec_point.unwrap();
-        if left_pred != right_pred {
-            dbg!(left_pred, right_pred);
-            panic!("Error: not a common decision point");
-        }
-
-        if left_cnd == right_cnd {
-            panic!("Error: same condition");
-        }
-
-        let left = self.blocks[left].name.clone();
-        let right = self.blocks[right].name.clone();
-
-        let (true_src, false_src) = if left_cnd {
-            (left, right)
-        } else {
-            (right, left)
-        };
-
-        (self.blocks[left_pred].name.clone(), (true_src, false_src))
     }
 }

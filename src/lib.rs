@@ -1,6 +1,6 @@
 pub mod conv;
 pub mod lang;
-mod rules;
+pub mod rules;
 
-type EGraph = egg::EGraph<lang::Lang, ()>;
-type Lang = lang::Lang;
+pub type EGraph = egg::EGraph<lang::Lang, ()>;
+pub type Lang = lang::Lang;
