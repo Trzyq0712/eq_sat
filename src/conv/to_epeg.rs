@@ -1,5 +1,7 @@
+use egg::RecExpr;
+
 use super::cfg::Cfg;
-use crate::{lang, EGraph, Lang};
+use crate::{lang, Lang};
 
 use std::collections::HashMap;
 
@@ -30,7 +32,7 @@ impl Context {
         }
     }
 
-    fn to_id(&mut self, egraph: &mut EGraph, operand: &Operand) -> egg::Id {
+    fn get_or_add_id(&mut self, egraph: &mut RecExpr<Lang>, operand: &Operand) -> egg::Id {
         if let Some(id) = self.to_id.get(operand) {
             return *id;
         }
@@ -45,21 +47,18 @@ impl Context {
     }
 }
 
-pub fn from_module(module: &llvm_ir::Module) {
+pub fn from_module(_module: &llvm_ir::Module) {
     todo!()
 }
 
-pub fn parse_function(function: &llvm_ir::Function) -> (EGraph, egg::Id) {
-    let mut egraph = EGraph::default();
+pub fn parse_function(function: &llvm_ir::Function) -> (RecExpr<Lang>, egg::Id) {
+    let mut egraph = RecExpr::default();
     let mut name_to_id: HashMap<Operand, egg::Id> = HashMap::new();
 
     for param in &function.parameters {
         let id = egraph.add((&param.name).into());
         name_to_id.insert((&param.name).into(), id);
     }
-
-    dbg!(&egraph);
-    dbg!(&name_to_id);
 
     let bblocks = &function.basic_blocks;
     let mut ctx = Context::new(bblocks, name_to_id);
@@ -72,14 +71,9 @@ pub fn parse_function(function: &llvm_ir::Function) -> (EGraph, egg::Id) {
     (egraph, ctx.ret.expect("No return value"))
 }
 
-fn parse_bblock(ctx: &mut Context, egraph: &mut EGraph, bblock: &llvm_ir::BasicBlock) {
+fn parse_bblock(ctx: &mut Context, egraph: &mut RecExpr<Lang>, bblock: &llvm_ir::BasicBlock) {
     let block_id = ctx.cfg.id_of(&bblock.name);
-    let preds = ctx
-        .cfg
-        .preds(&bblock.name)
-        .iter()
-        .copied()
-        .collect::<Vec<_>>();
+    let preds = ctx.cfg.preds(&bblock.name).to_vec();
     match preds.as_slice() {
         &[] => {
             let id = egraph.add(Lang::I1(true));
@@ -113,11 +107,11 @@ fn parse_bblock(ctx: &mut Context, egraph: &mut EGraph, bblock: &llvm_ir::BasicB
             }
             ctx.ptr_state[block_id] = ptr_state;
 
-            let get_pred_cond = |ctx: &mut Context, egraph: &mut EGraph, pred: usize| {
+            let get_pred_cond = |ctx: &mut Context, egraph: &mut RecExpr<Lang>, pred: usize| {
                 let term = ctx.cfg.blocks[pred].term.clone();
                 match term {
                     llvm_ir::Terminator::CondBr(cond_br) => {
-                        let cond = ctx.to_id(egraph, &(&cond_br.condition).into());
+                        let cond = ctx.get_or_add_id(egraph, &(&cond_br.condition).into());
                         let cond = if cond_br.false_dest == bblock.name {
                             egraph.add(Lang::Not(cond))
                         } else {
@@ -139,17 +133,12 @@ fn parse_bblock(ctx: &mut Context, egraph: &mut EGraph, bblock: &llvm_ir::BasicB
         }
     }
 
-    println!("Before {}: {:?}", bblock.name, {
-        let mut ptrs: Vec<_> = ctx.ptr_state[block_id].iter().collect();
-        ptrs.sort_unstable();
-        ptrs
-    });
     for instruction in &bblock.instrs {
         parse_instruction(ctx, egraph, &bblock.name, instruction);
     }
     ctx.ret = match &bblock.term {
         llvm_ir::Terminator::Ret(ret) => {
-            let op = ctx.to_id(
+            let op = ctx.get_or_add_id(
                 egraph,
                 &(ret.return_operand.as_ref().expect("Void function")).into(),
             );
@@ -157,27 +146,16 @@ fn parse_bblock(ctx: &mut Context, egraph: &mut EGraph, bblock: &llvm_ir::BasicB
         }
         _ => None,
     };
-    println!("After {}: {:?}", bblock.name, {
-        let mut ptrs: Vec<_> = ctx.ptr_state[block_id].iter().collect();
-        ptrs.sort_unstable();
-        ptrs
-    });
 }
 
 fn parse_instruction(
     ctx: &mut Context,
-    egraph: &mut EGraph,
+    egraph: &mut RecExpr<Lang>,
     curr_block: &llvm_ir::Name,
     instr: &llvm_ir::Instruction,
 ) {
     let block_id = ctx.cfg.id_of(curr_block);
     match instr {
-        llvm_ir::Instruction::Add(add) => {
-            let op0 = ctx.to_id(egraph, &(&add.operand0).into());
-            let op1 = ctx.to_id(egraph, &(&add.operand1).into());
-            let id = egraph.add(Lang::Add([op0, op1]));
-            ctx.to_id.insert((&add.dest).into(), id);
-        }
         llvm_ir::Instruction::Alloca(alloca) => {
             let witness = egraph.add(Lang::Alloca(ctx.alloc_ctr));
             ctx.alloc_ctr += 1;
@@ -187,7 +165,7 @@ fn parse_instruction(
             ctx.ptr_state[block_id].insert(ptr, witness);
         }
         llvm_ir::Instruction::Load(load) => {
-            let ptr = ctx.to_id(egraph, &(&load.address).into());
+            let ptr = ctx.get_or_add_id(egraph, &(&load.address).into());
             let witness = *ctx.ptr_state[block_id]
                 .get(&ptr)
                 .expect("Pointer witness not found");
@@ -196,8 +174,8 @@ fn parse_instruction(
             // Loads do not affect state, so no need to update ptr_state
         }
         llvm_ir::Instruction::Store(store) => {
-            let ptr = ctx.to_id(egraph, &(&store.address).into());
-            let value = ctx.to_id(egraph, &(&store.value).into());
+            let ptr = ctx.get_or_add_id(egraph, &(&store.address).into());
+            let value = ctx.get_or_add_id(egraph, &(&store.value).into());
             let witness = *ctx.ptr_state[block_id]
                 .get(&ptr)
                 .expect("Pointer witness not found");
@@ -205,8 +183,8 @@ fn parse_instruction(
             ctx.ptr_state[block_id].insert(ptr, id); // Now this load is the witness
         }
         llvm_ir::Instruction::ICmp(icmp) => {
-            let op0 = ctx.to_id(egraph, &(&icmp.operand0).into());
-            let op1 = ctx.to_id(egraph, &(&icmp.operand1).into());
+            let op0 = ctx.get_or_add_id(egraph, &(&icmp.operand0).into());
+            let op1 = ctx.get_or_add_id(egraph, &(&icmp.operand1).into());
             let cond = match icmp.predicate {
                 llvm_ir::IntPredicate::EQ => lang::Cond::Eq,
                 llvm_ir::IntPredicate::NE => lang::Cond::Neq,
@@ -220,20 +198,20 @@ fn parse_instruction(
             ctx.to_id.insert((&icmp.dest).into(), id);
         }
         llvm_ir::Instruction::Add(add) => {
-            let op0 = ctx.to_id(egraph, &(&add.operand0).into());
-            let op1 = ctx.to_id(egraph, &(&add.operand1).into());
+            let op0 = ctx.get_or_add_id(egraph, &(&add.operand0).into());
+            let op1 = ctx.get_or_add_id(egraph, &(&add.operand1).into());
             let id = egraph.add(Lang::Add([op0, op1]));
             ctx.to_id.insert((&add.dest).into(), id);
         }
         llvm_ir::Instruction::Sub(sub) => {
-            let op0 = ctx.to_id(egraph, &(&sub.operand0).into());
-            let op1 = ctx.to_id(egraph, &(&sub.operand1).into());
+            let op0 = ctx.get_or_add_id(egraph, &(&sub.operand0).into());
+            let op1 = ctx.get_or_add_id(egraph, &(&sub.operand1).into());
             let id = egraph.add(Lang::Sub([op0, op1]));
             ctx.to_id.insert((&sub.dest).into(), id);
         }
         llvm_ir::Instruction::Mul(mul) => {
-            let op0 = ctx.to_id(egraph, &(&mul.operand0).into());
-            let op1 = ctx.to_id(egraph, &(&mul.operand1).into());
+            let op0 = ctx.get_or_add_id(egraph, &(&mul.operand0).into());
+            let op1 = ctx.get_or_add_id(egraph, &(&mul.operand1).into());
             let id = egraph.add(Lang::Mul([op0, op1]));
             ctx.to_id.insert((&mul.dest).into(), id);
         }
@@ -259,10 +237,10 @@ impl From<&llvm_ir::Operand> for Operand {
     fn from(operand: &llvm_ir::Operand) -> Self {
         match operand {
             llvm_ir::Operand::LocalOperand { name, ty: _ } => {
-                Operand::Variable(name_to_string(&name))
+                Operand::Variable(name_to_string(name))
             }
             llvm_ir::Operand::ConstantOperand(cons_ref) => match cons_ref.as_ref() {
-                &llvm_ir::Constant::Int { bits, value } => Operand::Constant(value as i64),
+                &llvm_ir::Constant::Int { bits: _bits, value } => Operand::Constant(value as i64),
                 _ => todo!(),
             },
             llvm_ir::Operand::MetadataOperand => todo!(),

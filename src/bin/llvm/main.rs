@@ -26,7 +26,7 @@ fn main() {
         .with_node_limit(1000000)
         .with_time_limit(std::time::Duration::from_secs(15))
         .with_iter_limit(100)
-        .with_egraph(egraph)
+        .with_expr(&egraph)
         .run(&rw_rules());
     dbg!(runner.stop_reason.unwrap());
 

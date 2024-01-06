@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicU64;
 
 use egg::{FromOp, Id, Language, Symbol};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Cond {
     Eq,
     Neq,

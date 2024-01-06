@@ -1,0 +1,2 @@
+[env]
+LLVM_SYS_150_PREFIX = { value = "/home/trzyq/llvm15", force = true }

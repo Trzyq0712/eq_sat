@@ -21,3 +21,6 @@ test = false
 [lib]
 name = "lang"
 path = "src/lib.rs"
+
+[dev-dependencies]
+rstest = "0.18.2"
