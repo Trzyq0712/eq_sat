@@ -204,7 +204,7 @@ impl Display for Lang {
             Phi(_) => write!(f, "phi"),
             Eval(_) => write!(f, "eval"),
             Pass(_) => write!(f, "pass"),
-            Alloca(_) => write!(f, "alloca"),
+            Alloca(id) => write!(f, "alloca_{}", id),
             Ptr(_) => write!(f, "ptr"),
             Load(_) => write!(f, "load"),
             Store(_) => write!(f, "store"),

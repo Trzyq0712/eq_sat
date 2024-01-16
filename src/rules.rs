@@ -13,11 +13,8 @@ pub fn rw_rules() -> Vec<Rewrite<Lang, ()>> {
 
 fn arithmetic_rules() -> Vec<Rewrite<Lang, ()>> {
     let mut unidirectional = vec![
-        //        rewrite!("commutative addition"; "(+ ?a ?b)" => "(+ ?b ?a)"),
-        //        rewrite!("commutative multiplication"; "(* ?a ?b)" => "(* ?b ?a)"),
-        //        rewrite!("double minus"; "(- (- ?a))" => "?a"),
-        //        rewrite!("double not"; "(not (not ?a))" => "?a"),
-        //        rewrite!("not if"; "(phi ?c ?t ?e)" => "(phi (not ?c) ?e ?t)"),
+        rewrite!("commutative addition"; "(+ ?a ?b)" => "(+ ?b ?a)"),
+        rewrite!("commutative multiplication"; "(* ?a ?b)" => "(* ?b ?a)"),
         rewrite!("one multiplication"; "(* 1_i64 ?a)" => "?a"),
         rewrite!("zero multiplication"; "(* 0_i64 ?a)" => "0_i64"),
         rewrite!("zero addition"; "(+ 0_i64 ?a)" => "?a"),
@@ -31,7 +28,7 @@ fn arithmetic_rules() -> Vec<Rewrite<Lang, ()>> {
     ]
     .concat();
 
-    unidirectional.extend(biderectional.into_iter());
+    unidirectional.extend(biderectional);
     unidirectional
 }
 
@@ -50,13 +47,14 @@ fn phi_rules() -> Vec<Rewrite<Lang, ()>> {
         rewrite!("phi if neg"; "(phi ?c ?t ?e)" => "(phi (! ?c) ?e ?t)"),
     ];
     let bi = vec![
-        rewrite!("phi and"; "(phi (&& ?c1 ?c2) ?t ?e)" <=> "(phi ?c1 (phi ?c2 ?t ?e) ?e)"),
-        rewrite!("phi or"; "(phi (|| ?c1 ?c2) ?t ?e)" <=> "(phi ?c1 ?t (phi ?c2 ?t ?e))"),
-        rewrite!("phi cond already true"; "(phi (&& ?c1 ?c2) (phi (&& ?c1 ?c3) ?t2 ?e2) ?e1)" 
-        <=> "(phi (&& ?c1 ?c2) (phi ?c3 ?t2 ?e2) ?e1)"),
+        rewrite!("not if"; "(phi ?c ?t ?e)" <=> "(phi (! ?c) ?e ?t)"),
+        // rewrite!("phi and"; "(phi (&& ?c1 ?c2) ?t ?e)" <=> "(phi ?c1 (phi ?c2 ?t ?e) ?e)"),
+        // rewrite!("phi or"; "(phi (|| ?c1 ?c2) ?t ?e)" <=> "(phi ?c1 ?t (phi ?c2 ?t ?e))"),
+        // rewrite!("phi cond already true"; "(phi (&& ?c1 ?c2) (phi (&& ?c1 ?c3) ?t2 ?e2) ?e1)"
+        // <=> "(phi (&& ?c1 ?c2) (phi ?c3 ?t2 ?e2) ?e1)"),
     ]
     .concat();
-    uni.extend(bi.into_iter());
+    uni.extend(bi);
     uni
 }
 
@@ -107,6 +105,6 @@ fn logic_rules() -> Vec<Rewrite<Lang, ()>> {
         rewrite!("distributive or"; "(|| ?a (&& ?b ?c))" <=> "(&& (|| ?a ?b) (|| ?a ?c))"),
     ]
     .concat();
-    uni.extend(bi.into_iter());
+    uni.extend(bi);
     uni
 }

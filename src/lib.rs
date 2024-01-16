@@ -1,4 +1,5 @@
 pub mod conv;
+pub mod cost_fn;
 pub mod interp;
 pub mod lang;
 pub mod rules;
