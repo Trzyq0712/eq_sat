@@ -17,7 +17,7 @@ fn main() {
 
     let func = &module.functions[0];
 
-    let (egraph, root) = parse_function(func);
+    let lang::Function { body: egraph, .. } = parse_function(func);
 
     // let extractor = Extractor::new(&egraph, AstSize);
     // let (best_cost, best) = extractor.find_best(root);

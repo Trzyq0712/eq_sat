@@ -1,7 +1,7 @@
 use egg::RecExpr;
 
 use super::cfg::Cfg;
-use crate::{lang, Lang};
+use crate::{lang, Function, Lang};
 
 use std::collections::HashMap;
 
@@ -32,7 +32,7 @@ impl Context {
         }
     }
 
-    fn get_or_add_id(&mut self, egraph: &mut RecExpr<Lang>, operand: &Operand) -> egg::Id {
+    fn get_or_add_id(&mut self, egraph: &mut RecExprBuilder, operand: &Operand) -> egg::Id {
         if let Some(id) = self.to_id.get(operand) {
             return *id;
         }
@@ -47,12 +47,44 @@ impl Context {
     }
 }
 
+fn unset_id() -> egg::Id {
+    egg::Id::from(usize::MAX)
+}
+
+#[derive(Default, Debug)]
+struct RecExprBuilder {
+    nodes: Vec<Lang>,
+}
+
+impl RecExprBuilder {
+    fn new() -> Self {
+        Self { nodes: vec![] }
+    }
+
+    fn add(&mut self, node: Lang) -> egg::Id {
+        self.nodes.push(node);
+        egg::Id::from(self.nodes.len() - 1)
+    }
+
+    fn build(self) -> RecExpr<Lang> {
+        use egg::Language;
+        assert!(
+            self.nodes.iter().all(|n| n
+                .children()
+                .iter()
+                .all(|c| c < &egg::Id::from(self.nodes.len()))),
+            "A node refers to a non-existent child"
+        );
+        self.nodes.into()
+    }
+}
+
 pub fn from_module(_module: &llvm_ir::Module) {
     todo!()
 }
 
-pub fn parse_function(function: &llvm_ir::Function) -> (RecExpr<Lang>, egg::Id) {
-    let mut egraph = RecExpr::default();
+pub fn parse_function(function: &llvm_ir::Function) -> Function {
+    let mut egraph = RecExprBuilder::default();
     let mut name_to_id: HashMap<Operand, egg::Id> = HashMap::new();
 
     for param in &function.parameters {
@@ -68,10 +100,19 @@ pub fn parse_function(function: &llvm_ir::Function) -> (RecExpr<Lang>, egg::Id) 
         parse_bblock(&mut ctx, &mut egraph, &bblocks[block_id]);
     }
 
-    (egraph, ctx.ret.expect("No return value"))
+    Function {
+        name: function.name.clone(),
+        params: function
+            .parameters
+            .iter()
+            .map(|param| name_to_string(&param.name))
+            .collect(),
+        body: egraph.build(),
+        root: ctx.ret.expect("No return value"),
+    }
 }
 
-fn parse_bblock(ctx: &mut Context, egraph: &mut RecExpr<Lang>, bblock: &llvm_ir::BasicBlock) {
+fn parse_bblock(ctx: &mut Context, egraph: &mut RecExprBuilder, bblock: &llvm_ir::BasicBlock) {
     let block_id = ctx.cfg.id_of(&bblock.name);
     let preds = ctx.cfg.preds(&bblock.name).to_vec();
     match preds.as_slice() {
@@ -107,7 +148,7 @@ fn parse_bblock(ctx: &mut Context, egraph: &mut RecExpr<Lang>, bblock: &llvm_ir:
             }
             ctx.ptr_state[block_id] = ptr_state;
 
-            let get_pred_cond = |ctx: &mut Context, egraph: &mut RecExpr<Lang>, pred: usize| {
+            let get_pred_cond = |ctx: &mut Context, egraph: &mut RecExprBuilder, pred: usize| {
                 let term = ctx.cfg.blocks[pred].term.clone();
                 match term {
                     llvm_ir::Terminator::CondBr(cond_br) => {
@@ -150,7 +191,7 @@ fn parse_bblock(ctx: &mut Context, egraph: &mut RecExpr<Lang>, bblock: &llvm_ir:
 
 fn parse_instruction(
     ctx: &mut Context,
-    egraph: &mut RecExpr<Lang>,
+    egraph: &mut RecExprBuilder,
     curr_block: &llvm_ir::Name,
     instr: &llvm_ir::Instruction,
 ) {

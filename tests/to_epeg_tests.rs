@@ -2,6 +2,7 @@ use ::lang::conv::to_epeg;
 use ::lang::interp;
 use ::lang::rules::rw_rules;
 use egg::{AstDepth, Extractor, Runner};
+use lang::Function;
 use llvm_ir::Module;
 
 #[test]
@@ -12,7 +13,11 @@ fn add_conversion() {
     let mut env = interp::Env::default();
     env.set("0".into(), interp::Value::I64(3));
     env.set("1".into(), interp::Value::I64(4));
-    let (expr_og, root) = to_epeg::parse_function(add_func);
+    let Function {
+        body: expr_og,
+        root,
+        ..
+    } = to_epeg::parse_function(add_func);
     println!("original:\n{}", expr_og.pretty(40));
 
     let expr = interp::Expr::with_root(&expr_og, root);
@@ -44,7 +49,11 @@ fn if_conversion() {
     env.set("0".into(), interp::Value::I64(3));
     env.set("1".into(), interp::Value::I64(4));
     env.set("2".into(), interp::Value::I64(1));
-    let (expr_og, root) = to_epeg::parse_function(add_func);
+    let Function {
+        body: expr_og,
+        root,
+        ..
+    } = to_epeg::parse_function(add_func);
     println!("original:\n{}", expr_og.pretty(40));
 
     let expr = interp::Expr::with_root(&expr_og, root);
@@ -76,7 +85,11 @@ fn complex_if_conversion() {
     env.set("0".into(), interp::Value::I64(5));
     env.set("1".into(), interp::Value::I64(4));
     env.set("2".into(), interp::Value::I64(1));
-    let (expr_og, root) = to_epeg::parse_function(add_func);
+    let Function {
+        body: expr_og,
+        root,
+        ..
+    } = to_epeg::parse_function(add_func);
     println!("original:\n{}", expr_og.pretty(40));
 
     let expr = interp::Expr::with_root(&expr_og, root);
@@ -91,7 +104,7 @@ fn complex_if_conversion() {
         .run(&rw_rules());
 
     let extractor = Extractor::new(&runner.egraph, AstDepth);
-    let (_, best) = extractor.find_best(root);
+    let (_, best) = extractor.find_best(runner.roots[0]);
     println!("best:\n{}", best.pretty(40));
 
     let res = interp::Expr::new(&best).interp(&env, &mut interp::Store::default());

@@ -48,22 +48,22 @@ impl Language for Lang {
     fn matches(&self, other: &Self) -> bool {
         use Lang::*;
         match (self, other) {
-            (Add(_), Add(_)) => true,
-            (Sub(_), Sub(_)) => true,
-            (Mul(_), Mul(_)) => true,
-            (BAnd(_), BAnd(_)) => true,
-            (BOr(_), BOr(_)) => true,
-            (BNot(_), BNot(_)) => true,
-            (And(_), And(_)) => true,
-            (Or(_), Or(_)) => true,
-            (Not(_), Not(_)) => true,
+            (Add(_), Add(_))
+            | (Sub(_), Sub(_))
+            | (Mul(_), Mul(_))
+            | (BAnd(_), BAnd(_))
+            | (BOr(_), BOr(_))
+            | (BNot(_), BNot(_))
+            | (And(_), And(_))
+            | (Or(_), Or(_))
+            | (Not(_), Not(_))
+            | (Phi(_), Phi(_))
+            | (Eval(_), Eval(_))
+            | (Pass(_), Pass(_))
+            | (Ptr(_), Ptr(_))
+            | (Load(_), Load(_))
+            | (Store(_), Store(_)) => true,
             (ICmp(a, _), ICmp(b, _)) => a == b,
-            (Phi(_), Phi(_)) => true,
-            (Eval(_), Eval(_)) => true,
-            (Pass(_), Pass(_)) => true,
-            (Ptr(_), Ptr(_)) => true,
-            (Load(_), Load(_)) => true,
-            (Store(_), Store(_)) => true,
             (I1(a), I1(b)) => a == b,
             (I64(a), I64(b)) => a == b,
             (Var(a), Var(b)) => a == b,
